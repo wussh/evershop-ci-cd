@@ -1,16 +1,10 @@
 FROM node:18-alpine
-
 WORKDIR /app
-
-ENV HUSKY_SKIP_INSTALL=1 \
-    TURBO_TELEMETRY_DISABLED=1 \
-    TURBO_TELEMETRY=0
-
-RUN npm install -g npm@9 \
-    && npm ci --omit=dev --ignore-scripts
-
+RUN npm install -g npm@9
+COPY package*.json .
 COPY . .
+RUN npm install
 RUN npm run build
 
 EXPOSE 80
-CMD ["node", "packages/evershop/dist/bin/start/index.js"]
+CMD ["npm", "run", "start"]
