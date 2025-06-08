@@ -1,30 +1,48 @@
-FROM node:18-alpine
+FROM node:18-alpine AS builder
 WORKDIR /app
+
+# Disable Husky and Turbo telemetry
+ENV HUSKY_SKIP_INSTALL=1 \
+    TURBO_TELEMETRY_DISABLED=1
+
+# Install npm
 RUN npm install -g npm@9
-COPY package*.json .
-# # Copy your custom theme.
-# COPY themes ./themes
 
-# # Copy your custom extensions.
-# COPY extensions ./extensions
+# Copy package manifests and install dependencies
+COPY package*.json turbo.json ./
+RUN npm ci
 
-# # Copy your config.
-# COPY config ./config
+# Copy all project files
+COPY . .
 
-# # Copy your media.
-# COPY media ./media
+# Run initial setup script (creates config, admin user, etc.)
+RUN npm run setup -- --yes
 
-# # Copy your public files.
-# COPY public ./public
-
-# Copy your translations.
-COPY translations ./translations
-
-# Run npm install.
-RUN npm install
-
-# Build assets.
+# Build application assets
 RUN npm run build
 
+# --- Runner Stage ---
+FROM node:18-alpine AS runner
+WORKDIR /app
+
+# Disable Husky and Turbo telemetry
+ENV HUSKY_SKIP_INSTALL=1 \
+    TURBO_TELEMETRY_DISABLED=1
+
+# Install production dependencies only
+COPY package*.json turbo.json ./
+RUN npm ci --omit=dev --ignore-scripts
+
+# Copy built artifacts and necessary folders
+COPY --from=builder /app/packages/evershop/dist ./packages/evershop/dist
+COPY --from=builder /app/public ./public
+COPY --from=builder /app/media ./media
+COPY --from=builder /app/config ./config
+COPY --from=builder /app/translations ./translations
+
+# Ensure folder permissions
+RUN chmod -R 755 public .evershop .log media
+
+# Expose port and start application
 EXPOSE 80
 CMD ["npm", "run", "start"]
