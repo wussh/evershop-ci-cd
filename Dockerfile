@@ -10,6 +10,7 @@ WORKDIR /app
 
 # Copy package definitions and install dependencies
 COPY package*.json ./
+COPY . .
 RUN npm install
 
 # Run EverShop setup to generate default config and folders
