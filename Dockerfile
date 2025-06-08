@@ -10,7 +10,7 @@ RUN npm install -g npm@9
 
 # Copy package manifests and install dependencies
 COPY package*.json turbo.json ./
-RUN npm ci
+RUN npm install
 
 # Copy all project files
 COPY . .
@@ -31,7 +31,7 @@ ENV HUSKY_SKIP_INSTALL=1 \
 
 # Install production dependencies only
 COPY package*.json turbo.json ./
-RUN npm ci --omit=dev --ignore-scripts
+RUN npm install --omit=dev --ignore-scripts
 
 # Copy built artifacts and necessary folders
 COPY --from=builder /app/packages/evershop/dist ./packages/evershop/dist
