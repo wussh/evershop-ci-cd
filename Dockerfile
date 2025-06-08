@@ -1,48 +1,40 @@
-FROM node:18-alpine AS builder
+# Use a lightweight Node.js image
+FROM node:18-alpine
+
+# Install npm v9 and netcat for health checks
+RUN npm install -g npm@9 && \
+    apk add --no-cache netcat-openbsd
+
+# Create app directory
 WORKDIR /app
 
-# Disable Husky and Turbo telemetry
-ENV HUSKY_SKIP_INSTALL=1 \
-    TURBO_TELEMETRY_DISABLED=1
-
-# Install npm
-RUN npm install -g npm@9
-
-# Copy package manifests and install dependencies
-COPY package*.json turbo.json ./
+# Copy package definitions and install dependencies
+COPY package*.json ./
 RUN npm install
 
-# Copy all project files
-COPY . .
+# Run EverShop setup to generate default config and folders
+RUN npx evershop install
 
-# Run initial setup script (creates config, admin user, etc.)
-RUN npm run setup -- --yes
+# Copy custom assets (themes, extensions, media, public) if any
+# If you don't have these folders locally, evershop install already creates defaults
+# COPY themes ./themes
+# COPY extensions ./extensions
+# COPY config ./config
+# COPY media ./media
+# COPY public ./public
+# COPY translations ./translations
+# COPY .evershop .evershop
 
-# Build application assets
+# Copy entrypoint script and make it executable
+# COPY entrypoint.sh /usr/local/bin/entrypoint.sh
+# RUN chmod +x /usr/local/bin/entrypoint.sh
+
+# Build production assets
 RUN npm run build
 
-# --- Runner Stage ---
-FROM node:18-alpine AS runner
-WORKDIR /app
+# Expose application port
+EXPOSE 3000
 
-# Disable Husky and Turbo telemetry
-ENV HUSKY_SKIP_INSTALL=1 \
-    TURBO_TELEMETRY_DISABLED=1
-
-# Install production dependencies only
-COPY package*.json turbo.json ./
-RUN npm install --omit=dev --ignore-scripts
-
-# Copy built artifacts and necessary folders
-COPY --from=builder /app/packages/evershop/dist ./packages/evershop/dist
-COPY --from=builder /app/public ./public
-COPY --from=builder /app/media ./media
-COPY --from=builder /app/config ./config
-COPY --from=builder /app/translations ./translations
-
-# Ensure folder permissions
-RUN chmod -R 755 public .evershop .log media
-
-# Expose port and start application
-EXPOSE 80
+# Use entrypoint to wait for DB then start
+# ENTRYPOINT ["/usr/local/bin/entrypoint.sh"]
 CMD ["npm", "run", "start"]
